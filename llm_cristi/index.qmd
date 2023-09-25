@@ -1,0 +1,320 @@
+---
+title: "RAG and Roll"
+subtitle: "Revolutionizing Knowledge-Based Chatbots with LLMs"
+format:
+  revealjs:
+    code-fold: true
+    incremental: true
+---
+
+## 
+
+![](king.png)
+
+## About me
+
+* Got interested in ML in 2012
+* Went to work at Google in Zurich from 2014 to 2018
+* Returned to Romania in 2018
+* Was the TL of an ML team at a startup
+* Independent consultant since 2021
+* You can email me at: consulting@rolisz.ro
+
+# Who has used chatbots?
+
+* Who loves chatbots?
+
+## Traditional chatbots
+
+![Dialog Tree](dialog_tree.png)
+
+## Traditional chatbots
+
+* Quite inflexible
+* All the options and topics have to be coded explicitly
+
+## Traditional ML
+
+* You had to train a model for each task
+* Each model starts from 0
+* Models didn’t understand label semantics
+
+# Modern ML with LLMs
+
+## Quick intro to Large Language Models
+
+* LLMs are based on Transformers
+* Fairly new - came out in 2017
+* A kind of neural network
+* With an attention mechanism
+
+## Components of an LLM - Multi head attention
+![Multi head attention](multihead.png)
+
+## Visualizing attention
+
+![Visualizing attention](it_attention.png)
+
+## Components of an LLM - Encoder and Decoder
+
+![Encoder and Decoder](EncoderDecoder.png)
+
+
+## Components of an LLM - Tokenization
+
+* A transformer sees tokens, not words or characters
+* Tokenization is learned from the dataset
+* Frequent words have their own tokens
+* Rare words are composed of multiple tokens
+
+## Components of an LLM - Tokenization
+
+
+:::: {.columns}
+
+::: {.column width="40%"}
+![Pizza](pizza.jpg)
+:::
+
+::: {.column width="60%"}
+"I love pizza" -> ['I', 'love', 'pizza']
+:::
+
+::::
+
+
+## Components of an LLM - Tokenization
+
+
+:::: {.columns}
+
+::: {.column width="40%"}
+![Aardvark](aardvark.jpg)
+:::
+
+::: {.column width="60%"}
+"I love aardvarks" -> ['I', 'love', 'a', '\#\#ard', '\#\#var', '\#\#ks']
+:::
+
+::::
+
+
+
+##  Transformer Family Tree
+
+![Transformer Family Tree](transformers.png)
+
+
+::: aside
+Via [Xavier Amatriain](https://amatriain.net/blog/transformer-models-an-introduction-and-catalog-2d1e9039f376/#FamilyTree)
+:::
+
+
+## Training Transformers
+
+* trained to predict the next token on internet sized corpus
+* they learn to generate text in many languages
+* they learn to reason and do logic
+* they learn to solve math
+* they learn to code
+* they are good at many different tasks
+* Doesn't have to be trained/finetuned for our tasks
+
+
+## LLM Hallucinations
+
+![LLMs can hallucinate](mushroom.gif)
+
+## LLM Hallucinations
+
+* Recently Bing Chat told people a foodbank is a tourist hotspot in Ottawa
+* Simply asking questions is unreliable for getting good answers
+
+
+## Hallucination Example
+
+![Largest village](village.png)
+
+## Transformers gonna transform
+
+* But Transformers are good at...
+* ... transforming text 
+* ![](thought.gif)
+
+## Transformers gonna transform
+
+* If you give it several pieces of content you know is true
+* Transformers can work well with them
+* They can answer questions about those pieces of text
+* They can rephrase or transform the text
+
+
+## Fixing the hallucination
+
+```{=html}
+<iframe width="780" height="500" src="https://chat.openai.com/share/f23d698c-308f-48f4-9057-5a84c58b13ae" title="ChatGpt"></iframe>
+```
+
+# Retrieval Augmented Generation (RAG)
+
+## Embeddings
+
+* a vectorial representation of text
+* similar sentences should have vectors that are close to each other
+* they can be either trained explicitly
+* or arise out of training LLMs
+* can help us figure out what to pass as context to the LLM
+
+## Visualizing embeddings
+
+```{python}
+#| label: fig-polar
+#| fig-cap: "2D projection of Word2vec embeddings"
+
+import numpy as np
+import plotly.graph_objects as go
+
+# Data setup
+reduced_embeddings_dict = {
+    'apple': [-6.06754259, -5.71129162],
+    'banana': [-6.248149, -5.69799829],
+    'cherry': [-6.3102034, -5.6910014],
+    'grape': [-6.22684868, -5.82125844],
+    'cat': [-10.34569391, -0.65363252],
+    'dog': [-10.53235158, -0.6871376],
+    'elephant': [-10.49663886, -0.61475174],
+    'giraffe': [-10.46252588, -0.74390655],
+    'car': [12.79759681, -7.31666141],
+    'bus': [12.94467525, -7.28864871],
+    'bike': [13.02659669, -7.31007225],
+    'train': [12.86638602, -7.28752703],
+    'red': [3.73257867, 13.79509471],
+    'blue': [3.73897094, 13.59092083],
+    'green': [3.84838674, 13.57768293],
+    'yellow': [3.73476278, 13.86018907]
+}
+clusters = {
+    "fruits": ["apple", "banana", "cherry", "grape"],
+    "animals": ["cat", "dog", "elephant", "giraffe"],
+    "vehicles": ["car", "bus", "bike", "train"],
+    "colors": ["red", "blue", "green", "yellow"]
+}
+colors = {
+    "fruits": "red",
+    "animals": "blue",
+    "vehicles": "green",
+    "colors": "yellow"
+}
+
+# Visualization
+x_vals = [-22.831175,  -17.115526,  -15.291474,   -8.064206,  -42.823265,  -37.046047,
+ -15.90032,    -8.797456,  -15.5797205,  -7.4994745, -23.17687,   -18.553848,
+ -37.396015,  -34.090435,  -27.927027,  -25.688156 ]
+
+y_vals = [ 20.623034,   12.952167,   24.427757,   17.746426,   -8.147988,  -12.287633,
+   3.1683426,   3.7588668, -15.911875,  -11.253573,  -17.261562,   -5.8476105,
+  12.267103,    4.668763 ,  11.063861,    3.6543074]
+text_vals = ['apple',
+ 'banana',
+ 'cherry',
+ 'grape',
+ 'cat',
+ 'dog',
+ 'elephant',
+ 'giraffe',
+ 'car',
+ 'bus',
+ 'bike',
+ 'train',
+ 'red',
+ 'blue',
+ 'green',
+ 'yellow']
+color_vals = ['red',
+ 'red',
+ 'red',
+ 'red',
+ 'blue',
+ 'blue',
+ 'blue',
+ 'blue',
+ 'green',
+ 'green',
+ 'green',
+ 'green',
+ 'yellow',
+ 'yellow',
+ 'yellow',
+ 'yellow']
+
+
+
+fig = go.Figure()
+fig.add_trace(go.Scatter(
+    x=x_vals,
+    y=y_vals,
+    mode="markers+text",
+    text=text_vals,
+    textposition="top center",
+    marker=dict(color=color_vals, size=10)
+))
+fig.update_layout(
+    title="2D Visualization of Word Embeddings",
+    xaxis_title="Principal Component 1",
+    yaxis_title="Principal Component 2",
+    showlegend=False
+)
+fig.show()
+```
+
+
+# Let's make a chatbot!
+
+## Use case
+
+* Talk to your news
+* Let's download the latest news from Digi24
+* Process them with the OpenAI APIs
+* And ask questions of them
+
+## Using embeddings
+
+* When the user asks something
+* we calculate the embedding for the question
+* search for items with similar embeddings 
+* choose top k 
+* use as context for LLM
+* along with original request
+
+## What we need
+
+* access to OpenAI APIs
+* Python
+* numpy
+* No LangChain, LlamaIndex, etc.
+
+# Coding time
+
+* Scraping the data
+* Creating the embeddings
+* Visualizing the embeddings
+* Finding relevant embeddings
+* Creating an answer
+* Holding a conversation
+
+## Still plenty of stuff to be done
+
+* Supporting different file types (PDF, Docx, images)
+* How to handle text with complex formatting
+* Breaking up large texts
+* Adding references
+* How to handle more general questions - "Give me a summary of all news today"
+* Finding even better embedding models
+* Adjusting the style and tone of the LLM
+* Running locally
+
+## Questions?
+
+![https://rolisz.com](qr.png){width=10}
+
+consulting@rolisz.ro
